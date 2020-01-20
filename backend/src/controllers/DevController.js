@@ -1,5 +1,7 @@
 const axios = require('axios');
 const Dev = require('../models/Dev');
+const parseStringAsArray = require('../utils/parseStringAsArray');
+const { findConnections, sendMessage } = require('../websocket');
 
 module.exports = {
     async index(request, response) {
@@ -13,10 +15,10 @@ module.exports = {
 
             let dev = await Dev.findOne({ github_username });
             if (dev) {
-                return response.json(dev)
+                return response.json(dev);
             }
 
-            const techsArray = techs.split(',').map(tech => tech.trim());
+            const techsArray = parseStringAsArray(techs);
             const location = {
                 type: 'Point',
                 coordinates: [longitude, latitude]
@@ -35,13 +37,22 @@ module.exports = {
                 location,
             })
 
+            // Filtra as conexões
+            const sendSocketMessageTo = findConnections(
+                { latitude, longitude },
+                techsArray,
+            )
+
+            sendMessage(sendSocketMessageTo, 'new-dev', dev);
+
             return response.json(dev)
-        } catch(e) {
+        } catch(error) {
             response.statusCode = 400;
 
             return response.json({
                 error: true,
-                message: 'Algum erro ocorreu.'
+                message: 'Algum erro ocorreu.',
+                details: error.message
             });
         }
     }
